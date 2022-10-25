@@ -1,9 +1,9 @@
 rule [
 	ruleID "Unmark Collapsed"
+	context [
+	]
 	left [
 		node [id 0 label "A"]
-	]
-	context [
 	]
 	right [
 		node [id 0 label "0"]

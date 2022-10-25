@@ -24,8 +24,8 @@ Available rules (their variable names)
 mark
 removeInterR
 reattachExternal
-reattachExternal
-removeR
+removeAttached
+removeSingleR
 unmark
 """
 strategy = (addSubset(level) >> repeat[steps](
@@ -33,7 +33,7 @@ strategy = (addSubset(level) >> repeat[steps](
 	>> repeat(revive(removeInterR))
 	>> repeat(revive(reattachExternal))
 	>> repeat(revive(removeAttached))
-	>> repeat(revive(removeR))
+	>> repeat(removeSingleR)
 	>> unmark
 ))
 dg = DG(graphDatabase=[goal, level])
