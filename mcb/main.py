@@ -1,4 +1,6 @@
 import networkx as nx
+
+#Generates the Networkx graph representation of the smiles string, and returns subgraphs for MCB for double and triple bonds
 def graph_from_smiles_string(smiles_string):
     G = nx.Graph()
     B_1 = []
@@ -8,32 +10,22 @@ def graph_from_smiles_string(smiles_string):
         G.add_node(v.id,label = v.stringLabel)
     for e in smilesGraph.edges:
         G.add_edge(e.source.id,e.target.id)
-        if e.bondType is BondType.Double:
+        if e.bondType is BondType.Double: #If double, add graph with the edge representing the double bond to B_1
             tmp = nx.Graph()
             tmp.add_edge(e.source.id,e.target.id)
-            tmp.add_edge(e.target.id,e.source.id)
             B_1.append(tmp)
-        if e.bondType is BondType.Triple:
+        if e.bondType is BondType.Triple:  #If triple, add graph with the edge representing the double bond to B_1 twice
             tmp = nx.Graph()
             tmp.add_edge(e.source.id,e.target.id)
-            tmp.add_edge(e.target.id,e.source.id)
             B_1.append(tmp)
             B_1.append(tmp)
     return G, B_1
 
+# If the path contains more or less nodes than path_length-1, and the first node and last node in the path is not the same, then it is not a simple cycle
 def is_simple_cycle(G):
     return len(G)-1 == len(set(G)) and G[0] == G[-1]
 
-def get_shortest_paths(G):
-    tmp = nx.shortest_path(G)
-    shortest_paths = []
-    for x in G.nodes:
-        for path in tmp[x].values():
-            shortest_paths.append(path)
-    
-    return shortest_paths
-
-# Creates vector for edges
+# Creates vector for edges, would be used for gaussian elimination, but not using that
 def edge_vector(G,subgraph):
     edges = list(G.edges)
     vector = [0]*len(edges)
@@ -41,15 +33,15 @@ def edge_vector(G,subgraph):
         vector[edges.index(edge)] = 1
     return vector
 
-def sublist(lst1, lst2):
-    return all([(x in lst2) for x in lst1])
-
+# For simplicity, it's a subgraph if they contain the same nodes and edges, using set to simplify process since they are simple cycles
 def is_subgraph(b, c):
-    b_graph = nx.Graph()
+    nodes, edges = [], []
     for cycle in b:
-        b_graph = nx.compose(b_graph,cycle)
-    return sublist(list(c.nodes),list(b_graph.nodes))
+        nodes += list(cycle.nodes)
+        edges += list(cycle.edges)
+    return set(c.nodes).issubset(set(nodes)) and set(c.edges).issubset(set(edges))
 
+# Hortons algorithms, takes a graph and returns the minimum cycle basis
 def horton(G):
     shortest_paths = nx.shortest_path(G)
     cycles = []
@@ -74,42 +66,42 @@ def horton(G):
         i+=1
     return b
 
-
+#Takes a list of subgraphs that make up the MCB of a graph and returns a string representing the invariants
 def inference_invarient(MCB):
     length_two = []
     output = "|"
     tmp = MCB
     while tmp != []:
         next_cycle = tmp.pop(0)
-        if len(next_cycle.edges) == 1:
-            if tmp[0] == next_cycle:
+        if len(next_cycle.edges) == 1: # From double of triple bond
+            if tmp[0] == next_cycle: # was triple bond
                 output+="2,2|"
-                tmp.pop(0)
-            else:
-                output+="2e|"
+                tmp.pop(0) #Both are captured so need to pop the next as well
+            else: # Was double bond
+                output+="2e|" 
             length_two.append(list(next_cycle.edges)[0])
-            
-        else:
+        else: # Standard
             size = len(next_cycle.edges)
-            e  = "e" if set(length_two).isdisjoint(set(next_cycle.edges)) else ""
+            e  = "e" if set(length_two).isdisjoint(set(next_cycle.edges)) else "" # If there is a double bond in the cycle, it can't have an "e"
             output+=str(size)+ e + "|"
     return output
 
 strings = ["CC(=C)C(=O)OC12CC3CC(C1)CC(C3)C2",
     'CN1CNC2C1C(=O)N(C(=O)N2C)C',
     "OC(=O)C1CCCCC1NC5CCC(CC34CC2CC(CC(C2)C3)C4)CC5",
-    "C1CCC23CCN(C(C2C1)CC4=C3C=C(C=C4)O)CC(=O)C5=CC=CC=C5", 
-    "C12CC3(CC(C1)CC(C2)C3)CC4=CC=C(C=C4)NC5=C(C=CC=C5)C(O)=O",
-    "C1=CC(=CC=C1C(CC(C2=CC=CC=C2)(C3=CC=CC=C3)O)NCC)OC",
-    "C1(=CC=CC=C1)C(C2=CC=C(C(=C2)C)C)(C#C)OC(NC3CCCCC3)=O",
+    "C1CCC23CCN(C(C2C1)CC4=C3C=C(C=C4)O)CC(=O)C5=CC=CC=C5", # From figur 4.1
+    "C12CC3(CC(C1)CC(C2)C3)CC4=CC=C(C=C4)NC5=C(C=CC=C5)C(O)=O", # From figur 4.2
+    "C1=CC(=CC=C1C(CC(C2=CC=CC=C2)(C3=CC=CC=C3)O)NCC)OC", # From figur 4.3
+    "C1(=CC=CC=C1)C(C2=CC=C(C(=C2)C)C)(C#C)OC(NC3CCCCC3)=O", # From figur 4.4
     ]
-G, B_1 = graph_from_smiles_string(strings[6])
-#B_1 are the cycles from dobbelt and triple bonds that we prune in the preprocessing, it is a list of MultiGraphs to represent them better
-#G is a simple graph that does not have any dobbelt or triple bonds
-B_0 = horton(G)
+for i in range(3,7):
+    G, B_1 = graph_from_smiles_string(strings[i])
+    #B_1 are the cycles from dobbelt and triple bonds that we prune in the preprocessing, it is a list of MultiGraphs to represent them better
+    #G is a simple graph that does not have any dobbelt or triple bonds
+    B_0 = horton(G)
 
-# MCB is the union of B_0 and B_1
-MCB = B_1 + B_0
-for cycle in MCB:
-    print(cycle.edges)
-print(inference_invarient(MCB))
+    # MCB is the union of B_0 and B_1
+    MCB = B_1 + B_0
+    # for cycle in MCB:
+    #     print(cycle.edges)
+    print(inference_invarient(MCB))
